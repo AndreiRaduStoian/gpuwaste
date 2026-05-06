@@ -16,6 +16,19 @@ class SubsystemState:
     next_issue_time: float = 0.0
 
 
+@dataclass(frozen=True)
+class TraceEvent:
+    group_id: int
+    warp_id: int
+    instr_id: str
+    op: str
+    subsystem: str
+    issue_time: float
+    complete_time: float
+    deps: Tuple[str, ...]
+    raw: str = ""
+
+
 # -----------------------------
 # Sim
 # -----------------------------
@@ -36,6 +49,8 @@ class PipelineSimulator:
             name: SubsystemState(name)
             for name in hardware.subsystems
         }
+
+        self.trace: List[TraceEvent] = []
 
     # def run(self, warps: List[WarpState]) -> float:
     #     time = 0.0
@@ -104,6 +119,7 @@ class PipelineSimulator:
     #     )
 
     def run(self, warps: List[WarpState]) -> float:
+        self.trace.clear()
         time = 0.0
         event_counter = itertools.count()
 
@@ -175,6 +191,19 @@ class PipelineSimulator:
                 subsystem.next_issue_time = time + timing.cpi
 
                 complete_time = time + timing.latency
+                self.trace.append(
+                    TraceEvent(
+                        group_id=warp.group_id,
+                        warp_id=warp.warp_id,
+                        instr_id=instr.id,
+                        op=instr.op,
+                        subsystem=timing.subsystem,
+                        issue_time=time,
+                        complete_time=complete_time,
+                        deps=instr.deps,
+                        raw=instr.raw,
+                    )
+                )
 
                 heapq.heappush(
                     completions,
@@ -235,7 +264,54 @@ class PipelineSimulator:
                 times.append(subsystem.next_issue_time)
 
         return min(times) if times else None
-        
+
+    def get_trace(self) -> List[TraceEvent]:
+        return list(self.trace)
+
+
+    def print_trace(self, limit: Optional[int] = None) -> None:
+        events = self.trace if limit is None else self.trace[:limit]
+
+        for event in events:
+            print(
+                f"t={event.issue_time:8.2f} -> {event.complete_time:8.2f} | "
+                f"g={event.group_id} w={event.warp_id} | "
+                f"{event.instr_id:>5} {event.op:<20} | "
+                f"{event.subsystem:<10} | "
+                f"deps={event.deps}"
+            )
+
+    def write_trace_csv(self, path: str) -> None:
+        import csv
+
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+
+            writer.writerow([
+                "group_id",
+                "warp_id",
+                "instr_id",
+                "op",
+                "subsystem",
+                "issue_time",
+                "complete_time",
+                "deps",
+                "raw",
+            ])
+
+            for event in self.trace:
+                writer.writerow([
+                    event.group_id,
+                    event.warp_id,
+                    event.instr_id,
+                    event.op,
+                    event.subsystem,
+                    event.issue_time,
+                    event.complete_time,
+                    " ".join(event.deps),
+                    event.raw,
+                ])
+
     def _dump_state(self, time, warps, completions):
         print("\n=== DEADLOCK DEBUG DUMP ===")
         print(f"Current time: {time}\n")

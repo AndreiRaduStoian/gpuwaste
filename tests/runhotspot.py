@@ -41,3 +41,5 @@ sim = PipelineSimulator(
 cycles = sim.run(warps)
 
 print(f"Runtime: {cycles} cycles")
+sim.print_trace(limit=50)
+sim.write_trace_csv("hotspot_trace.csv")
