@@ -29,6 +29,33 @@ class TraceEvent:
     raw: str = ""
 
 
+@dataclass(frozen=True)
+class ExecutionConfig:
+    group_size: int
+    num_groups: int
+
+    @property
+    def occupancy(self) -> int:
+        # In paper: ω = |γ| * γ.
+        return self.group_size * self.num_groups
+
+
+def build_warps_from_idg(exe: ExecutionConfig, idg: Dict[str, Instruction]) -> List[WarpState]:
+    warps = []
+    warp_id = 0
+
+    for group_id in range(exe.num_groups):
+        for _ in range(exe.group_size):
+            warps.append(
+                WarpState(
+                    warp_id=warp_id,
+                    group_id=group_id,
+                    instructions=dict(idg),
+                )
+            )
+            warp_id += 1
+
+    return warps
 # -----------------------------
 # Sim
 # -----------------------------
@@ -40,6 +67,7 @@ class PipelineSimulator:
         hardware: HardwareConfig,
         mapper: Callable[[Instruction], InstructionTiming],
         scheduler: Optional[Scheduler] = None,
+        execution_config: Optional[ExecutionConfig] = None,
     ):
         self.hardware = hardware
         self.mapper = mapper
