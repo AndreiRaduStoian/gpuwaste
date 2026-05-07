@@ -241,8 +241,8 @@ class PipelineSimulator:
                 issued_count += 1
                 issued_any = True
 
-            if issued_any:
-                continue
+            # if issued_any:
+            #     continue
 
             next_time = self._next_event_time(time, completions)
 
