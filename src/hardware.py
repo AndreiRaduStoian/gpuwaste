@@ -55,6 +55,13 @@ def classify_ptx_op(op: str) -> str:
     return "alu"
 
 
+def make_static_mapper(hardware: HardwareConfig):
+    def mapper(instr):
+        return hardware.timing_for_class(instr.op)
+
+    return mapper
+
+
 def make_ptx_static_mapper(hardware: HardwareConfig):
     def mapper(instr):
         instr_class = classify_ptx_op(instr.op)
