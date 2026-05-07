@@ -2,7 +2,10 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
+SRC_ROOT = PROJECT_ROOT / "src"
+
+sys.path.insert(0, str(SRC_ROOT))
+print(SRC_ROOT)
 
 from ptx_parser import build_idg_from_ptx
 from schedulers import RoundRobinWarpScheduler
@@ -10,8 +13,10 @@ from pipelinesim import PipelineSimulator, ExecutionConfig, build_warps_from_idg
 from hardware import TOY_PTX_HARDWARE, make_ptx_static_mapper
 
 
-PTX_FILE = "hotspot.ptx"
-TRACE_FILE = "hotspot_trace.csv"
+PTX_FILE = PROJECT_ROOT / "benchmarks" / "ptx" / "hotspot.ptx"
+TRACE_FILE = PROJECT_ROOT / "outputs" / "traces" / "hotspot_trace.csv"
+
+TRACE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
 with open(PTX_FILE, "r", encoding="utf-8") as f:
