@@ -3,6 +3,7 @@ __pycache__/
 
 outputs/
 external/
+papers/
 
 *.csv
 *.png

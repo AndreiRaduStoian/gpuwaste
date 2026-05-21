@@ -5,6 +5,17 @@ from typing import List, Tuple
 from idg import Instruction, WarpState
 
 
+# Notes from reading CUDA programming guide latest.
+"""
+At runtime, the GPU scheduler utilizes stream priorities to determine task execution order, but these priorities serve as hints
+rather than guarantees. When selecting work to launch, pending tasks in higher-priority streams take
+precedence over those in lower-priority streams. Higher-priority tasks do not preempt already running
+lower-priority tasks. The GPU does not reassess work queues during task execution, and increasing a
+stream’s priority will not interrupt ongoing work. Stream priorities influence task execution without
+enforcing strict ordering, so users can leverage stream priorities to influence task execution without
+relying on strict ordering guarantees.
+"""
+
 class Scheduler:
     """
     Receives issuable (warp, instruction) pairs and returns them
