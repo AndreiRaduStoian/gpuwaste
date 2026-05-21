@@ -14,7 +14,6 @@
 } while (0)
 
 
------------------------------------------------------------
 
 __global__ void compute_fma_kernel(float *out, int iterations)
 {
@@ -34,7 +33,6 @@ __global__ void compute_fma_kernel(float *out, int iterations)
 }
 
 
------------------------------------------------------------
 
 __global__ void vector_add_kernel(
     const float *a,
