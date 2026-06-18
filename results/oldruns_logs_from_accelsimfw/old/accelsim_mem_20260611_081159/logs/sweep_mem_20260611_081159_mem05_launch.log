@@ -1,0 +1,19 @@
+ProcMan spawned [pid=3516]
+Cannot find a supported job management system. Spawning jobs locally.
+Running Simulations with GPGPU-Sim built from 
+accelsim-commit-3016c65_modified_0.0_26-06-03-15-48-28gpgpu-sim_git-commit-6c3cf4ff_modified_0.0
+ 
+Using configs: RTX3070-SASS-MEM050
+Benchmark: synthetic_large3
+Run Subdir = RTX3070-SASS-MEM050
+Parameters = 
+#SASS
+#SASS-Driven Accel-Sim
+
+#MEM050
+-gpgpu_clock_domains 1132:1132:1132:1750.25
+
+Base config file = /workspace/accel-sim-framework/gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM86_RTX3070/gpgpusim.config
+Job 37 queued (synthetic_kernels_dc-compute_1048576_10_256 RTX3070-SASS-MEM050)
+Job 38 queued (synthetic_kernels_dc-vectoradd_1048576_10_256 RTX3070-SASS-MEM050)
+Job 39 queued (synthetic_kernels_dc-shared_1048576_10_256 RTX3070-SASS-MEM050)

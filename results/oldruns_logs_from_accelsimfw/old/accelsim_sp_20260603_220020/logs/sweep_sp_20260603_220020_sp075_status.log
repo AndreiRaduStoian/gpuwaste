@@ -1,0 +1,10 @@
+Using logfiles ['/workspace/accel-sim-framework/util/job_launching/../job_launching/logfiles/sim_log.sweep_sp_20260603_220020_sp075.26.06.03-Wednesday.txt']
+procman.id	Node                          	App                 	AppArgs             	Version             	Config    	RunningTime    	Mem   	JobStatus                     	Basic GPGPU-Sim Stats                             	
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+116       	UNKNOWN                       	vectoradd           	N1048576_I1_B256    	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	ABORTED, DEADLOCK             	                                                  	
+117       	UNKNOWN                       	compute             	N262144_I100_B256   	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	ABORTED, DEADLOCK             	                                                  	
+118       	UNKNOWN                       	pointer             	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=3 M	SIM_TIME=6 sec (6 sec)	TOT_IPC=1 K	TOT_INSN=19 M	TOT_CYCLE=17 K	
+119       	UNKNOWN                       	shared              	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	ABORTED, DEADLOCK             	                                                  	
+120       	UNKNOWN                       	sfu                 	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	ABORTED, DEADLOCK             	                                                  	
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+failed job log written to /workspace/accel-sim-framework/util/job_launching/../job_launching/logfiles/failed_job_log_sim_log.sweep_sp_20260603_220020_sp075.26.06.03-Wednesday.txt

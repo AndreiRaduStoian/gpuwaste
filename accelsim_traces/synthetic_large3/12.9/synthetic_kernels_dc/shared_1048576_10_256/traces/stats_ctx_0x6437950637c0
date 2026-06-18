@@ -1,0 +1,3 @@
+kernel id, kernel mangled name, grid_dimX, grid_dimY, grid_dimZ, #blocks, block_dimX, block_dimY, block_dimZ, #threads, total_insts, total_reported_insts
+kernel-1-ctx_0x6437950637c0.trace.xz, _Z21shared_barrier_kernelPKfPfii, 4096, 1, 1, 4096, 256, 1, 1, 256, 4718592,4718592
+kernel-2-ctx_0x6437950637c0.trace.xz, _Z21shared_barrier_kernelPKfPfii, 4096, 1, 1, 4096, 256, 1, 1, 256, 4718592,4718592

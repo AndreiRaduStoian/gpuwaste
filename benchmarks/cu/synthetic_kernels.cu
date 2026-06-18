@@ -113,6 +113,28 @@ __global__ void shared_barrier_kernel(
 }
 
 
+
+__global__ void sfu_kernel(float *out, int n, int iterations)
+{
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (tid >= n) {
+        return;
+    }
+
+    float x = 0.001f * tid + 1.0f;
+
+    #pragma unroll 1
+    for (int i = 0; i < iterations; i++) {
+        x = sinf(x);
+        x = cosf(x);
+        x = rsqrtf(x * x + 1.0f);
+    }
+
+    out[tid] = x;
+}
+
+
 static void print_usage(const char *prog)
 {
     printf("Usage:\n");
@@ -121,7 +143,8 @@ static void print_usage(const char *prog)
     printf("  compute\n");
     printf("  vectoradd\n");
     printf("  pointer\n");
-    printf("  shared\n\n");
+    printf("  shared\n");
+    printf("  sfu\n\n");
     printf("Example:\n");
     printf("  %s compute 16777216 10000 256\n", prog);
 }
@@ -189,6 +212,9 @@ static float run_timed_kernel(
     else if (strcmp(kernel_name, "shared") == 0) {
         size_t shmem_bytes = block_size * sizeof(float);
         shared_barrier_kernel<<<grid_size, block_size, shmem_bytes>>>(d_a, d_c, n, iterations);
+    }
+    else if (strcmp(kernel_name, "sfu") == 0) {
+        sfu_kernel<<<grid_size, block_size>>>(d_c, n, iterations);
     }
     else {
         printf("Unknown kernel: %s\n", kernel_name);

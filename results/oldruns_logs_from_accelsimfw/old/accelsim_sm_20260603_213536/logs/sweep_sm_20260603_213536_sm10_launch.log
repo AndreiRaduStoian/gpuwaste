@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/workspace/accel-sim-framework/./util/job_launching/run_simulations.py", line 452, in <module>
+    options.simulator_dir = common.dir_option_test(
+                            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/accel-sim-framework/util/job_launching/common.py", line 222, in dir_option_test
+    raise PathMissing("Error - directory test fails for {0}".format(name))
+common.PathMissing: Error - directory test fails for /workspace/accel-sim-framework/gpu-simulator/bin/sm

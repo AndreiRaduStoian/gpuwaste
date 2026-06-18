@@ -1,0 +1,55 @@
+Calling job_status.py
+Using logfiles ['/workspace/accel-sim-framework/util/job_launching/../job_launching/logfiles/sim_log.synthetic_sm10_sp10_sfu10_core10_mem10.26.06.03-Wednesday.txt']
+procman.id	Node                          	App                 	AppArgs             	Version             	Config    	RunningTime    	Mem   	JobStatus                     	Basic GPGPU-Sim Stats
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+71        	b00937208672                  	vectoradd           	N1048576_I1_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+72        	b00937208672                  	compute             	N262144_I100_B256   	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+73        	b00937208672                  	pointer             	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+74        	b00937208672                  	shared              	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+75        	b00937208672                  	sfu                 	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+76        	b00937208672                  	vectoradd           	N1048576_I1_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+77        	b00937208672                  	compute             	N262144_I100_B256   	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+78        	b00937208672                  	pointer             	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+79        	b00937208672                  	shared              	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+80        	b00937208672                  	sfu                 	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Passed:0/10, No error:0/10, Failed/Error:0/10, Running:10/10, Waiting:0/10
+Sleeping for 30s
+Calling job_status.py
+Using logfiles ['/workspace/accel-sim-framework/util/job_launching/../job_launching/logfiles/sim_log.synthetic_sm10_sp10_sfu10_core10_mem10.26.06.03-Wednesday.txt']
+procman.id	Node                          	App                 	AppArgs             	Version             	Config    	RunningTime    	Mem   	JobStatus                     	Basic GPGPU-Sim Stats
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+71        	b00937208672                  	vectoradd           	N1048576_I1_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+72        	b00937208672                  	compute             	N262144_I100_B256   	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+73        	b00937208672                  	pointer             	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+74        	b00937208672                  	shared              	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+75        	b00937208672                  	sfu                 	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+76        	b00937208672                  	vectoradd           	N1048576_I1_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=1 M	SIM_TIME=13 sec (13 sec)	TOT_IPC=432	TOT_INSN=16 M	TOT_CYCLE=36 K
+77        	b00937208672                  	compute             	N262144_I100_B256   	accelsim-commit-3016	RTX3070-SA	              0	0     	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=12 M	SIM_TIME=8 sec (8 sec)	TOT_IPC=4 K	TOT_INSN=93 M	TOT_CYCLE=25 K
+78        	b00937208672                  	pointer             	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=3 M	SIM_TIME=7 sec (7 sec)	TOT_IPC=1 K	TOT_INSN=19 M	TOT_CYCLE=17 K
+79        	b00937208672                  	shared              	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=6 M	SIM_TIME=10 sec (10 sec)	TOT_IPC=2 K	TOT_INSN=59 M	TOT_CYCLE=26 K
+80        	b00937208672                  	sfu                 	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=13 M	SIM_TIME=23 sec (23 sec)	TOT_IPC=5 K	TOT_INSN=292 M	TOT_CYCLE=64 K
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Passed:0/10, No error:5/10, Failed/Error:0/10, Running:5/10, Waiting:0/10
+Sleeping for 30s
+Calling job_status.py
+Using logfiles ['/workspace/accel-sim-framework/util/job_launching/../job_launching/logfiles/sim_log.synthetic_sm10_sp10_sfu10_core10_mem10.26.06.03-Wednesday.txt']
+procman.id	Node                          	App                 	AppArgs             	Version             	Config    	RunningTime    	Mem   	JobStatus                     	Basic GPGPU-Sim Stats
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+71        	b00937208672                  	vectoradd           	N1048576_I1_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+72        	b00937208672                  	compute             	N262144_I100_B256   	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+73        	b00937208672                  	pointer             	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+74        	b00937208672                  	shared              	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+75        	b00937208672                  	sfu                 	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	              0	0     	RUNNING
+76        	UNKNOWN                       	vectoradd           	N1048576_I1_B256    	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=1 M	SIM_TIME=13 sec (13 sec)	TOT_IPC=432	TOT_INSN=16 M	TOT_CYCLE=36 K
+77        	UNKNOWN                       	compute             	N262144_I100_B256   	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=12 M	SIM_TIME=8 sec (8 sec)	TOT_IPC=4 K	TOT_INSN=93 M	TOT_CYCLE=25 K
+78        	UNKNOWN                       	pointer             	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=3 M	SIM_TIME=7 sec (7 sec)	TOT_IPC=1 K	TOT_INSN=19 M	TOT_CYCLE=17 K
+79        	UNKNOWN                       	shared              	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=6 M	SIM_TIME=10 sec (10 sec)	TOT_IPC=2 K	TOT_INSN=59 M	TOT_CYCLE=26 K
+80        	UNKNOWN                       	sfu                 	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	COMPLETE_NO_OTHER_INFO        	SIMRATE_IPS=13 M	SIM_TIME=23 sec (23 sec)	TOT_IPC=5 K	TOT_INSN=292 M	TOT_CYCLE=64 K
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Passed:0/10, No error:5/10, Failed/Error:0/10, Running:5/10, Waiting:0/10
+Sleeping for 30s
+Traceback (most recent call last):
+  File "/workspace/accel-sim-framework/./util/job_launching/monitor_func_test.py", line 272, in <module>
+    time.sleep(int(options.sleep_time))
+KeyboardInterrupt

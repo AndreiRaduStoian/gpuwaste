@@ -7,3 +7,9 @@ papers/
 
 *.csv
 *.png
+
+*.trace.xz
+*.traceg.xz
+*.ncu-rep
+
+

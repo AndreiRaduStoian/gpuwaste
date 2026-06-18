@@ -1,0 +1,24 @@
+130       	UNKNOWN                       	sfu                 	N262144_I20_B256    	accelsim-commit-3016	RTX3070-SA	UNKNOWN        	UNKNOWN	ABORTED, DEADLOCK             	                                                  	
+
+**********************************************************
+sfu-N262144_I20_B256--RTX3070-SASS-SFU075. Status=ABORTED, DEADLOCK
+Last 10 line of /workspace/accel-sim-framework/util/job_launching/../../sim_run_12.9/sfu/N262144_I20_B256/RTX3070-SASS-SFU075/sfu-N262144_I20_B256.accelsim-commit-3016c65_modified_0.0_26-06-03-15-48-28gpgpu-sim_git-commit-6c3cf4ff_modified_0.0.o130
+------------------
+Re-run the simulator in gdb and use debug routines in .gdbinit to debug this
+
+GPGPU-Sim uArch: DEADLOCK  0(1536) 1(1536) 2(1536) 3(1536) 4(1536) 5(1536) 6(1536) 7(1536)  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...  + others ...
+GPGPU-Sim uArch: DEADLOCK  shader cores no longer committing instructions [core(# threads)]:
+GPGPU-Sim uArch: ERROR ** deadlock detected: last writeback core 45 @ gpu_sim_cycle 5939 (+ gpu_tot_sim_cycle 4294867296) (94061 cycles ago)
+
+
+thread block = 275,0,0
+thread block = 274,0,0
+thread block = 273,0,0
+------------------
+
+Contents of /workspace/accel-sim-framework/util/job_launching/../../sim_run_12.9/sfu/N262144_I20_B256/RTX3070-SASS-SFU075/sfu-N262144_I20_B256.accelsim-commit-3016c65_modified_0.0_26-06-03-15-48-28gpgpu-sim_git-commit-6c3cf4ff_modified_0.0.e130
+------------------
+/workspace/accel-sim-framework/util/job_launching/../../sim_run_12.9/sfu/N262144_I20_B256/RTX3070-SASS-SFU075/slurm.sim: line 54: 28930 Aborted                 (core dumped) /workspace/accel-sim-framework/util/job_launching/../../sim_run_12.9/gpgpu-sim-builds/accelsim-commit-3016c65_modified_0.0_26-06-03-15-48-28gpgpu-sim_git-commit-6c3cf4ff_modified_0.0/accel-sim.out -config ./gpgpusim.config -trace ./traces/kernelslist.g
+
+------------------
+**********************************************************

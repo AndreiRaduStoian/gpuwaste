@@ -1,0 +1,13 @@
+Cannot find a supported job management system. Spawning jobs locally.
+Running Simulations with GPGPU-Sim built from 
+accelsim-commit-3016c65_modified_0.0_26-06-03-15-48-28gpgpu-sim_git-commit-6c3cf4ff_modified_0.0
+ 
+Using configs: RTX3070-SASS
+Benchmark: synthetic_large3_n4
+Run Subdir = RTX3070-SASS
+Parameters = 
+#SASS
+#SASS-Driven Accel-Sim
+
+Base config file = /workspace/accel-sim-framework/gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM86_RTX3070/gpgpusim.config
+Cannot find traces in any of the paths: ['/workspace/gpuwaste/accelsim_traces/synthetic_large3_n4/12.9/synthetic_kernels_dc/compute_4194304_10_256/traces']

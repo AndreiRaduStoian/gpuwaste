@@ -1,0 +1,3 @@
+kernel id, kernel mangled name, grid_dimX, grid_dimY, grid_dimZ, #blocks, block_dimX, block_dimY, block_dimZ, #threads, total_insts, total_reported_insts
+kernel-1-ctx_0x59bba6ac26b0.trace.xz, _Z17vector_add_kernelPKfS0_Pfi, 4096, 1, 1, 4096, 256, 1, 1, 256, 0,0
+kernel-2-ctx_0x59bba6ac26b0.trace.xz, _Z17vector_add_kernelPKfS0_Pfi, 4096, 1, 1, 4096, 256, 1, 1, 256, 524288,524288
