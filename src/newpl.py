@@ -438,6 +438,7 @@ def make_iterative_barrier_idg(iterations=256, include_final_barrier=False):
             previous = barrier_id
 
     return idg
+
 # ------------------------------------------------------------
 # experiments and IO
 # ------------------------------------------------------------
@@ -496,7 +497,8 @@ def sweep_iterative_barrier_sampled(
             )
 
             sim = PipelineSimulator(hardware, scheduler=scheduler_factory())
-            result = sim.run_idg(f"{gpu_name}_iter_barrier", idg, exe)
+            result = sim.run_idg(f"{gpu_name}_iter_barrier", idg, exe, tracing=False)
+
             compute_instr_per_warp = sum(1 for instr in idg.values() if instr.op == "compute")
             ipc_alu = occupancy * compute_instr_per_warp / result.cycles
 
@@ -618,5 +620,4 @@ if __name__ == "__main__":
     # print()
 
     f, p = run_barrier_experiments()
-    print_barrier_sweep(f)
-    print_barrier_sweep(p)
+    
