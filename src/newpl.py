@@ -181,99 +181,247 @@ def static_mapper(instr, hardware, exe):
     return hardware.timing_for_op(instr.op)
 
 
+# class MyPipeline:
+#     def __init__(self, hardware, mapper=static_mapper, scheduler=None):
+#         self.hardware = hardware
+#         self.mapper = mapper
+#         self.scheduler = scheduler or LowestHardwareThreadFirstScheduler()
+
+#     def run_idg(self, kernel_name, idg, exe):
+#         trace = []
+#         states = build_resident_hardware_threads(exe, idg)
+#         state_by_id = {s.hardware_thread_id: s for s in states}
+#         group_members = {}
+#         for state in states:
+#             group_members.setdefault(state.group_id, set()).add(state.hardware_thread_id)
+
+#         global_time = 0.0
+#         subsystems = {name: SubsystemState(name) for name in self.hardware.subsystems}
+#         completions = []
+#         event_counter = itertools.count()
+
+#         while True:
+#             # 1) Is there a ready pipeline?
+#             # 2) For the ready pipelines, are there matching instruction types that are also ready?
+
 class PipelineSimulator:
     def __init__(self, hardware, mapper=static_mapper, scheduler=None):
         self.hardware = hardware
         self.mapper = mapper
-        self.scheduler = scheduler or RoundRobinHardwareThreadScheduler()
+        self.scheduler = scheduler or LowestHardwareThreadFirstScheduler()
 
     def run_idg(self, kernel_name, idg, exe):
         trace = []
         states = build_resident_hardware_threads(exe, idg)
         state_by_id = {s.hardware_thread_id: s for s in states}
-        group_members = {}
-        for state in states:
-            group_members.setdefault(state.group_id, set()).add(state.hardware_thread_id)
 
         subsystems = {name: SubsystemState(name) for name in self.hardware.subsystems}
         next_global_issue_time = 0.0
         completions = []
         event_counter = itertools.count()
-        barrier_waiting = {}
         time = 0.0
 
         while True:
-            while completions and completions[0][0] <= time:
-                complete_time, _, hardware_thread_id, instr_id = heapq.heappop(completions)
-                state = state_by_id[hardware_thread_id]
-                instr = state.instructions[instr_id]
-
-                if instr.op == "barrier":
-                    key = (state.group_id, instr.id)
-                    waiting = barrier_waiting.setdefault(key, {})
-                    waiting[hardware_thread_id] = complete_time
-                    required = group_members[state.group_id]
-
-                    if set(waiting) == required:
-                        release_time = max(waiting.values())
-                        for waiting_id in required:
-                            state_by_id[waiting_id].completed[instr.id] = release_time
-                        del barrier_waiting[key]
-                else:
-                    state.completed[instr_id] = complete_time
+            self._complete_ready(completions, state_by_id, time)
 
             if all(state.is_done() for state in states):
                 break
 
-            candidates = self._collect_candidates(states, exe, subsystems, time, next_global_issue_time)
-            ordered = self.scheduler.order(candidates)
+            while next_global_issue_time <= time:
+                candidates = self._collect_candidates(states, exe, subsystems, time)
+                ordered = self.scheduler.order(candidates)
 
-            if ordered:
+                if not ordered:
+                    break
+
                 state, instr = ordered[0]
                 timing = self.mapper(instr, self.hardware, exe)
                 subsystem = subsystems[timing.subsystem]
 
                 state.issued.add(instr.id)
+
                 subsystem.next_issue_time = time + timing.lambda_cpi
                 next_global_issue_time = time + self.hardware.issue_lambda_cpi
 
                 complete_time = time + timing.completion_latency
-                heapq.heappush(completions, (complete_time, next(event_counter), state.hardware_thread_id, instr.id))
-                trace.append(TraceEvent(state.group_id, state.hardware_thread_id, instr.id, instr.op, timing.subsystem, time, complete_time, instr.deps, instr.raw))
+                heapq.heappush(
+                    completions,
+                    (
+                        complete_time,
+                        next(event_counter),
+                        state.hardware_thread_id,
+                        instr.id,
+                    ),
+                )
 
-            next_time = self._next_event_time(time, completions, subsystems, next_global_issue_time)
+                trace.append(
+                    TraceEvent(
+                        state.group_id,
+                        state.hardware_thread_id,
+                        instr.id,
+                        instr.op,
+                        timing.subsystem,
+                        time,
+                        complete_time,
+                        instr.deps,
+                        instr.raw,
+                    )
+                )
+
+            next_time = self._next_event_time(
+                time,
+                completions,
+                subsystems,
+                next_global_issue_time,
+            )
+
             if next_time is None:
-                self._dump_deadlock(time, states, subsystems, completions, barrier_waiting, next_global_issue_time)
+                self._dump_deadlock(
+                    time,
+                    states,
+                    subsystems,
+                    completions,
+                    {},
+                    next_global_issue_time,
+                )
                 break
+
             time = next_time
 
         cycles = max((max(s.completed.values(), default=0.0) for s in states), default=0.0)
         return SimulationResult(kernel_name, exe, cycles, len(idg), trace)
 
-    def _collect_candidates(self, states, exe, subsystems, time, next_global_issue_time):
-        if next_global_issue_time > time:
-            return []
+    def _complete_ready(self, completions, state_by_id, time):
+        while completions and completions[0][0] <= time:
+            complete_time, _, hardware_thread_id, instr_id = heapq.heappop(completions)
+            state = state_by_id[hardware_thread_id]
+            state.completed[instr_id] = complete_time
+
+    def _collect_candidates(self, states, exe, subsystems, time):
         out = []
+
         for state in states:
             for instr in state.ready_instructions(time):
                 timing = self.mapper(instr, self.hardware, exe)
                 subsystem = subsystems[timing.subsystem]
+
                 if subsystem.next_issue_time <= time:
                     out.append((state, instr))
+
         return out
 
     def _next_event_time(self, time, completions, subsystems, next_global_issue_time):
         times = []
+
         if completions and completions[0][0] > time:
             times.append(completions[0][0])
-        if next_global_issue_time > time:
-            times.append(next_global_issue_time)
+
         for subsystem in subsystems.values():
             if subsystem.next_issue_time > time:
                 times.append(subsystem.next_issue_time)
+
+        if next_global_issue_time > time:
+            times.append(next_global_issue_time)
+
         if not times:
             return None
+
         return min(times)
+
+# class PipelineSimulator:
+#     def __init__(self, hardware, mapper=static_mapper, scheduler=None):
+#         self.hardware = hardware
+#         self.mapper = mapper
+#         self.scheduler = scheduler or LowestHardwareThreadFirstScheduler()
+
+#     def run_idg(self, kernel_name, idg, exe):
+#         trace = []
+#         states = build_resident_hardware_threads(exe, idg)
+#         state_by_id = {s.hardware_thread_id: s for s in states}
+#         group_members = {}
+#         for state in states:
+#             group_members.setdefault(state.group_id, set()).add(state.hardware_thread_id)
+
+#         subsystems = {name: SubsystemState(name) for name in self.hardware.subsystems}
+#         next_global_issue_time = 0.0
+#         completions = []
+#         event_counter = itertools.count()
+#         barrier_waiting = {}
+#         time = 0.0
+
+
+#         while True:
+#             while completions and completions[0][0] <= time:
+#                 complete_time, _, hardware_thread_id, instr_id = heapq.heappop(completions)
+#                 state = state_by_id[hardware_thread_id]
+#                 instr = state.instructions[instr_id]
+
+#                 # if instr.op == "barrier
+#                 #     key = (state.group_id, instr.id)
+#                 #     waiting = barrier_waiting.setdefault(key, {})
+#                 #     waiting[hardware_thread_id] = complete_time
+#                 #     required = group_members[state.group_id]
+
+#                 #     if set(waiting) == required:
+#                 #         release_time = max(waiting.values())
+#                 #         for waiting_id in required:
+#                 #             state_by_id[waiting_id].completed[instr.id] = release_time
+#                 #         del barrier_waiting[key]
+#                 # else:
+#                 state.completed[instr_id] = complete_time
+
+#             if all(state.is_done() for state in states):
+#                 break
+
+#             candidates = self._collect_candidates(states, exe, subsystems, time, next_global_issue_time)
+#             ordered = self.scheduler.order(candidates)
+
+#             if ordered:
+#                 state, instr = ordered[0]
+#                 timing = self.mapper(instr, self.hardware, exe)
+#                 subsystem = subsystems[timing.subsystem]
+
+#                 state.issued.add(instr.id)
+#                 subsystem.next_issue_time = time + timing.lambda_cpi
+#                 next_global_issue_time = time + self.hardware.issue_lambda_cpi
+
+#                 complete_time = time + timing.completion_latency
+#                 heapq.heappush(completions, (complete_time, next(event_counter), state.hardware_thread_id, instr.id))
+#                 trace.append(TraceEvent(state.group_id, state.hardware_thread_id, instr.id, instr.op, timing.subsystem, time, complete_time, instr.deps, instr.raw))
+
+#             next_time = self._next_event_time(time, completions, subsystems, next_global_issue_time)
+#             if next_time is None:
+#                 self._dump_deadlock(time, states, subsystems, completions, barrier_waiting, next_global_issue_time)
+#                 break
+#             time = next_time
+
+#         cycles = max((max(s.completed.values(), default=0.0) for s in states), default=0.0)
+#         return SimulationResult(kernel_name, exe, cycles, len(idg), trace)
+
+#     def _collect_candidates(self, states, exe, subsystems, time, next_global_issue_time):
+#         if next_global_issue_time > time:
+#             return []
+#         out = []
+#         for state in states:
+#             for instr in state.ready_instructions(time):
+#                 timing = self.mapper(instr, self.hardware, exe)
+#                 subsystem = subsystems[timing.subsystem]
+#                 if subsystem.next_issue_time <= time:
+#                     out.append((state, instr))
+#         return out
+
+#     def _next_event_time(self, time, completions, subsystems, next_global_issue_time):
+#         times = []
+#         if completions and completions[0][0] > time:
+#             times.append(completions[0][0])
+#         if next_global_issue_time > time:
+#             times.append(next_global_issue_time)
+#         for subsystem in subsystems.values():
+#             if subsystem.next_issue_time > time:
+#                 times.append(subsystem.next_issue_time)
+#         if not times:
+#             return None
+#         return min(times)
 
     def _dump_deadlock(self, time, states, subsystems, completions, barrier_waiting, next_global_issue_time):
         print("time", time)
