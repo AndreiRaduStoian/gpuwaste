@@ -201,8 +201,9 @@ class PipelineSimulator:
         self.mapper = mapper
         self.scheduler = scheduler or LowestHardwareThreadFirstScheduler()
 
-    def run_idg(self, kernel_name, idg, exe):
-        trace = []
+    def run_idg(self, kernel_name, idg, exe, tracing=True):
+        if tracing:
+            trace = []
         states = build_resident_hardware_threads(exe, idg)
         state_by_id = {s.hardware_thread_id: s for s in states}
 
@@ -258,10 +259,10 @@ class PipelineSimulator:
                         instr.id,
                     ),
                 )
-
-                trace.append(TraceEvent(state.group_id, state.hardware_thread_id, instr.id, instr.op, timing.subsystem, time, complete_time, instr.deps, instr.raw))
+                
+                if tracing:
+                    trace.append(TraceEvent(state.group_id, state.hardware_thread_id, instr.id, instr.op, timing.subsystem, time, complete_time, instr.deps, instr.raw))
                 issued_this_cycle += 1
-                print("DEBUG: t= ", time, " ", trace[:-1])
 
             next_time = self._next_event_time(time, completions, subsystems)
 
@@ -284,6 +285,8 @@ class PipelineSimulator:
             time = next_time
 
         cycles = max((max(s.completed.values(), default=0.0) for s in states), default=0.0)
+        if not tracing:
+            trace = None
         return SimulationResult(kernel_name, exe, cycles, len(idg), trace)
 
     def _complete_ready(self, completions, state_by_id, group_members, barrier_waiting, time):
@@ -451,27 +454,49 @@ def sweep_occupancy(kernel_name, idg, hardware, hardware_threads_per_group_value
     return results
 
 
-def sweep_iterative_barrier(
+def sweep_iterative_barrier_sampled(
     gpu_name,
     hardware,
     max_occupancy,
     iterations=256,
     work_group_sizes=(32, 64, 128, 256, 512, 1024),
+    occupancy_values=None,
     scheduler_factory=RoundRobinHardwareThreadScheduler,
 ):
+    if occupancy_values is None:
+        occupancy_values = [1, 2, 4, 8, 16, 32]
+        if max_occupancy not in occupancy_values:
+            occupancy_values.append(max_occupancy)
+        occupancy_values = [x for x in occupancy_values if x <= max_occupancy]
+
     idg = make_iterative_barrier_idg(iterations=iterations)
     rows = []
 
-    for work_group_size in work_group_sizes:
-        warps_per_group = work_group_size // 32
+    for occupancy in occupancy_values:
+        for work_group_size in work_group_sizes:
+            warps_per_group = work_group_size // 32
 
-        if warps_per_group <= 0:
-            continue
+            if occupancy % warps_per_group != 0:
+                continue
 
-        max_groups = max_occupancy // warps_per_group
+            groups = occupancy // warps_per_group
 
-        for groups in range(1, max_groups + 1):
-            exe = ExecutionConfig(warps_per_group, groups)
+            if groups < 1:
+                continue
+
+            exe = ExecutionConfig(
+                hardware_threads_per_group=warps_per_group,
+                concurrent_groups_per_core=groups,
+            )
+
+            print(
+                "START RUN:",
+                "occ=", occupancy,
+                "wg_size=", work_group_size,
+                "warps/group=", warps_per_group,
+                "groups=", groups,
+            )
+
             sim = PipelineSimulator(hardware, scheduler=scheduler_factory())
             result = sim.run_idg(f"{gpu_name}_iter_barrier", idg, exe)
 
@@ -480,10 +505,10 @@ def sweep_iterative_barrier(
                 "work_group_size": work_group_size,
                 "warps_per_group": warps_per_group,
                 "groups": groups,
-                "occupancy": exe.occupancy_hardware_threads,
+                "occupancy": occupancy,
                 "cycles": result.cycles,
                 "warps_per_cycle": result.hardware_threads_per_cycle,
-                "instr_per_cycle": result.instructions_per_cycle,
+                "instructions_per_cycle": result.instructions_per_cycle,
             })
 
     rows.sort(key=lambda r: (r["occupancy"], r["work_group_size"]))
@@ -554,48 +579,44 @@ def run_default_experiments():
     )
 
 def run_barrier_experiments():
-    rows = []
-
-    rows.extend(
-        sweep_iterative_barrier(
-            "Fermi",
-            FERMI_BARRIER_HARDWARE,
-            max_occupancy=48,
-            iterations=256,
-        )
+    fermi_rows = sweep_iterative_barrier_sampled(
+        "Fermi",
+        FERMI_BARRIER_HARDWARE,
+        max_occupancy=48,
+        iterations=256,
     )
 
-    rows.extend(
-        sweep_iterative_barrier(
-            "Pascal",
-            PASCAL_BARRIER_HARDWARE,
-            max_occupancy=64,
-            iterations=256,
-        )
+    pascal_rows = sweep_iterative_barrier_sampled(
+        "Pascal",
+        PASCAL_BARRIER_HARDWARE,
+        max_occupancy=64,
+        iterations=256,
     )
 
-    return rows
+    return fermi_rows, pascal_rows
 
 
 if __name__ == "__main__":
-    exe = ExecutionConfig(hardware_threads_per_group=2, concurrent_groups_per_core=1)
-    result = PipelineSimulator(BARRIER_SMOKE_HARDWARE, scheduler=RoundRobinHardwareThreadScheduler()).run_idg("barrier_smoke", make_barrier_smoke_idg(), exe)
-    for event in result.trace:
-        print(event)
-    print()
+    # exe = ExecutionConfig(hardware_threads_per_group=2, concurrent_groups_per_core=1)
+    # result = PipelineSimulator(BARRIER_SMOKE_HARDWARE, scheduler=RoundRobinHardwareThreadScheduler()).run_idg("barrier_smoke", make_barrier_smoke_idg(), exe)
+    # for event in result.trace:
+    #     print(event)
+    # print()
     
     
-    exe = ExecutionConfig(hardware_threads_per_group=2, concurrent_groups_per_core=2)
-    result = PipelineSimulator(BARRIER_SMOKE_HARDWARE, scheduler=RoundRobinHardwareThreadScheduler()).run_idg("barrier_smoke_2groups", make_barrier_smoke_idg(), exe)
-    for event in result.trace:
-        print(event)
-    print()
+    # exe = ExecutionConfig(hardware_threads_per_group=2, concurrent_groups_per_core=2)
+    # result = PipelineSimulator(BARRIER_SMOKE_HARDWARE, scheduler=RoundRobinHardwareThreadScheduler()).run_idg("barrier_smoke_2groups", make_barrier_smoke_idg(), exe)
+    # for event in result.trace:
+    #     print(event)
+    # print()
 
-    exe = ExecutionConfig(hardware_threads_per_group=4, concurrent_groups_per_core=1)
-    result = PipelineSimulator(BARRIER_SMOKE_HARDWARE, scheduler=RoundRobinHardwareThreadScheduler()).run_idg("barrier_smoke_2groups", make_barrier_smoke_idg(), exe)
-    for event in result.trace:
-        print(event)
-    print()
+    # exe = ExecutionConfig(hardware_threads_per_group=4, concurrent_groups_per_core=1)
+    # result = PipelineSimulator(BARRIER_SMOKE_HARDWARE, scheduler=RoundRobinHardwareThreadScheduler()).run_idg("barrier_smoke_2groups", make_barrier_smoke_idg(), exe)
+    # for event in result.trace:
+    #     print(event)
+    # print()
 
-
-    print_barrier_sweep(run_barrier_experiments())
+    f, p = run_barrier_experiments()
+    print_barrier_sweep(f)
+    print_barrier_sweep(p)
+    
