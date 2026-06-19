@@ -384,7 +384,7 @@ BARRIER_SMOKE_HARDWARE = CoreHardwareConfig(
     },
 )
 
-
+# For the plot like fig16, we chose mul.s32 as the compute op for these two.
 FERMI_BARRIER_HARDWARE = CoreHardwareConfig(
     subsystems=("compute", "barrier"),
     issue_limit_ipc=1.0,
@@ -393,8 +393,6 @@ FERMI_BARRIER_HARDWARE = CoreHardwareConfig(
         "barrier": InstructionTiming("barrier", 2.0, 40.0),
     },
 )
-
-
 PASCAL_BARRIER_HARDWARE = CoreHardwareConfig(
     subsystems=("compute", "barrier"),
     issue_limit_ipc=4.0,
@@ -499,6 +497,8 @@ def sweep_iterative_barrier_sampled(
 
             sim = PipelineSimulator(hardware, scheduler=scheduler_factory())
             result = sim.run_idg(f"{gpu_name}_iter_barrier", idg, exe)
+            compute_instr_per_warp = sum(1 for instr in idg.values() if instr.op == "compute")
+            ipc_alu = occupancy * compute_instr_per_warp / result.cycles
 
             rows.append({
                 "gpu": gpu_name,
@@ -509,6 +509,7 @@ def sweep_iterative_barrier_sampled(
                 "cycles": result.cycles,
                 "warps_per_cycle": result.hardware_threads_per_cycle,
                 "instructions_per_cycle": result.instructions_per_cycle,
+                "alu_instructions_per_cycle": ipc_alu
             })
 
     rows.sort(key=lambda r: (r["occupancy"], r["work_group_size"]))
@@ -619,4 +620,3 @@ if __name__ == "__main__":
     f, p = run_barrier_experiments()
     print_barrier_sweep(f)
     print_barrier_sweep(p)
-    
