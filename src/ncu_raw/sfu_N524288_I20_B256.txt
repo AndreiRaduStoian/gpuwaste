@@ -1,0 +1,18 @@
+==PROF== Connected to process 21621 (/home/andrei/final/gpuwaste/benchmarks/cu/synthetic_kernels_nwu)
+==PROF== Profiling "sfu_kernel(float *, int, int)" - 0: 0%....50%....100% - 1 pass
+==PROF== Disconnected from process 21621
+Kernel:      sfu
+N:           524288
+Iterations:  20
+Block size:  256
+[21621] synthetic_kernels_nwu@127.0.0.1
+  sfu_kernel(float *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: Command line profiler metrics
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    gpu__cycles_elapsed.avg       cycle       98,955
+    gpu__time_duration.sum      usecond        78.72
+    sm__cycles_elapsed.avg        cycle   117,642.43
+    ----------------------- ----------- ------------
+

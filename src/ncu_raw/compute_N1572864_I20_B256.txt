@@ -1,0 +1,18 @@
+==PROF== Connected to process 22001 (/home/andrei/final/gpuwaste/benchmarks/cu/synthetic_kernels_nwu)
+==PROF== Profiling "compute_fma_kernel" - 0: 0%....50%....100% - 1 pass
+==PROF== Disconnected from process 22001
+Kernel:      compute
+N:           1572864
+Iterations:  20
+Block size:  256
+[22001] synthetic_kernels_nwu@127.0.0.1
+  compute_fma_kernel(float *, int) (6144, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: Command line profiler metrics
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    gpu__cycles_elapsed.avg       cycle       33,045
+    gpu__time_duration.sum      usecond        26.72
+    sm__cycles_elapsed.avg        cycle    39,281.30
+    ----------------------- ----------- ------------
+

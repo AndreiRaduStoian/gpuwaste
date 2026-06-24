@@ -1,0 +1,18 @@
+==PROF== Connected to process 22257 (/home/andrei/final/gpuwaste/benchmarks/cu/synthetic_kernels_nwu)
+==PROF== Profiling "shared_barrier_kernel" - 0: 0%....50%....100% - 1 pass
+==PROF== Disconnected from process 22257
+Kernel:      shared
+N:           2097152
+Iterations:  1
+Block size:  256
+[22257] synthetic_kernels_nwu@127.0.0.1
+  shared_barrier_kernel(const float *, float *, int, int) (8192, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: Command line profiler metrics
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    gpu__cycles_elapsed.avg       cycle       53,306
+    gpu__time_duration.sum      usecond        43.04
+    sm__cycles_elapsed.avg        cycle    63,643.30
+    ----------------------- ----------- ------------
+

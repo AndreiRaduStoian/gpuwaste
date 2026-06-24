@@ -1,0 +1,18 @@
+==PROF== Connected to process 23042 (/home/andrei/final/gpuwaste/benchmarks/cu/synthetic_kernels_nwu)
+==PROF== Profiling "vector_add_kernel" - 0: 0%....50%....100% - 1 pass
+==PROF== Disconnected from process 23042
+Kernel:      vectoradd
+N:           4194304
+Iterations:  20
+Block size:  256
+[23042] synthetic_kernels_nwu@127.0.0.1
+  vector_add_kernel(const float *, const float *, float *, int) (16384, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: Command line profiler metrics
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    gpu__cycles_elapsed.avg       cycle      186,363
+    gpu__time_duration.sum      usecond       149.76
+    sm__cycles_elapsed.avg        cycle   224,514.26
+    ----------------------- ----------- ------------
+

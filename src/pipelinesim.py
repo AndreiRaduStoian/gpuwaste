@@ -1,387 +1,269 @@
-from __future__ import annotations
-
-from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Tuple, Optional
 import heapq
 import itertools
+import math
 
-from idg import Instruction, WarpState
-from schedulers import Scheduler, LowestWarpFirstScheduler, RoundRobinWarpScheduler
-from hardware import InstructionTiming, HardwareConfig
+from schedulers import FIFOScheduler
+from hardware import SubsystemState
 
-
-@dataclass
-class SubsystemState:
-    name: str
-    next_issue_time: float = 0.0
-
-
-@dataclass(frozen=True)
-class TraceEvent:
-    group_id: int
-    warp_id: int
-    instr_id: str
-    op: str
-    subsystem: str
-    issue_time: float
-    complete_time: float
-    deps: Tuple[str, ...]
-    raw: str = ""
+def build_resident_hardware_threads(exe, idg):
+    states = []
+    hardware_thread_id = 0
+    for group_id in range(exe.concurrent_groups_per_core):
+        for _ in range(exe.hardware_threads_per_group):
+            states.append(HardwareThreadState(hardware_thread_id, group_id, idg))
+            hardware_thread_id += 1
+    return states
 
 
-@dataclass(frozen=True)
-class ExecutionConfig:
-    group_size: int
-    num_groups: int
-
-    @property
-    def occupancy(self) -> int:
-        # In paper: ω = |γ| * γ.
-        return self.group_size * self.num_groups
+def static_mapper(instr, hardware, exe):
+    return hardware.timing_for_op(instr.op)
 
 
-def build_warps_from_idg(exe: ExecutionConfig, idg: Dict[str, Instruction]) -> List[WarpState]:
-    warps = []
-    warp_id = 0
+class HardwareThreadState:
+    def __init__(self, hardware_thread_id, group_id, instructions):
+        self.hardware_thread_id = hardware_thread_id
+        self.group_id = group_id
+        self.instructions = dict(instructions)
+        self.issued = set()
+        self.completed = {}
 
-    for group_id in range(exe.num_groups):
-        for _ in range(exe.group_size):
-            warps.append(
-                WarpState(
-                    warp_id=warp_id,
-                    group_id=group_id,
-                    instructions=dict(idg),
-                )
-            )
-            warp_id += 1
+    def ready_instructions(self, time):
+        out = []
+        for instr in self.instructions.values():
+            if instr.id in self.issued:
+                continue
+            ready = True
+            for dep in instr.deps:
+                if dep not in self.completed or self.completed[dep] > time:
+                    ready = False
+                    break
+            if ready:
+                out.append(instr)
+        return out
 
-    return warps
-# -----------------------------
-# Sim
-# -----------------------------
+    def is_done(self):
+        return len(self.completed) == len(self.instructions)
+
 
 class PipelineSimulator:
-
-    def __init__(
-        self,
-        hardware: HardwareConfig,
-        mapper: Callable[[Instruction], InstructionTiming],
-        scheduler: Optional[Scheduler] = None,
-        execution_config: Optional[ExecutionConfig] = None,
-    ):
+    def __init__(self, hardware, mapper=static_mapper, scheduler=None):
         self.hardware = hardware
         self.mapper = mapper
-        self.scheduler = scheduler or LowestWarpFirstScheduler()
+        self.scheduler = scheduler or FIFOScheduler()
 
-        self.subsystems = {
-            name: SubsystemState(name)
-            for name in hardware.subsystems
-        }
-
-        self.trace: List[TraceEvent] = []
-
-    # def run(self, warps: List[WarpState]) -> float:
-    #     time = 0.0
-    #     event_counter = itertools.count()
-
-    #     # (completion_time, counter, warp_id, instruction_id)
-    #     completions = []
-
-    #     while not all(warp.is_done() for warp in warps):
-    #         # Mark instructions completed up to current time
-    #         while completions and completions[0][0] <= time:
-    #             complete_time, _, warp_id, instr_id = heapq.heappop(completions)
-    #             warps[warp_id].completed[instr_id] = complete_time
-
-    #         if all(warp.is_done() for warp in warps):
-    #             self._dump_state(time, warps, completions)
-    #             break
-
-    #         candidates = self._collect_candidates(warps, time)
-
-    #         issued_count = 0
-    #         issued_any = False
-
-    #         for warp, instr in self.scheduler.order(candidates):
-    #             if issued_count >= self.hardware.issue_limit:
-    #                 break
-
-    #             if instr.id in warp.issued:
-    #                 continue
-
-    #             timing = self.mapper(instr)
-    #             subsystem = self.subsystems[timing.subsystem]
-
-    #             if subsystem.next_issue_time > time:
-    #                 continue
-
-    #             # Issue instruction.
-    #             warp.issued.add(instr.id)
-    #             subsystem.next_issue_time = time + timing.cpi
-
-    #             complete_time = time + timing.latency
-    #             heapq.heappush(
-    #                 completions,
-    #                 (complete_time, next(event_counter), warp.warp_id, instr.id),
-    #             )
-
-    #             issued_count += 1
-    #             issued_any = True
-
-    #         if issued_any:
-    #             continue
-
-    #         next_time = self._next_event_time(time, completions)
-
-    #         if next_time is None:
-    #             self._dump_state(time, warps, completions)
-    #             raise RuntimeError(
-    #                 "Simulation deadlock: no ready instruction and no future event."
-    #             )
-
-    #         time = next_time
-
-    #     return max(
-    #         max(warp.completed.values(), default=0.0)
-    #         for warp in warps
-    #     )
-
-    def run(self, warps: List[WarpState]) -> float:
-        self.trace.clear()
-        time = 0.0
-        event_counter = itertools.count()
-
-        warp_map = {warp.warp_id: warp for warp in warps}
+    def run_idg(self, kernel_name, idg, exe, tracing=True):
+        if tracing:
+            trace = []
+        states = build_resident_hardware_threads(exe, idg)
+        state_by_id = {s.hardware_thread_id: s for s in states}
 
         group_members = {}
-        for warp in warps:
-            group_members.setdefault(warp.group_id, set()).add(warp.warp_id)
+        for state in states:
+            group_members.setdefault(state.group_id, set()).add(state.hardware_thread_id)
 
-        # A barrier is globally completed for a group only when all warps
-        # in that group have reached it.
-        barrier_waiting = {}
+        subsystems = {name: SubsystemState(name) for name in self.hardware.subsystems}
 
-        # (completion_time, counter, warp_id, instruction_id)
+        issue_limit = int(self.hardware.issue_limit_ipc)
+        issue_cycle = None
+        issued_this_cycle = 0
+
         completions = []
+        event_counter = itertools.count()
+        barrier_waiting = {}
+        time = 0.0
 
         while True:
-            while completions and completions[0][0] <= time:
-                complete_time, _, warp_id, instr_id = heapq.heappop(completions)
+            self._complete_ready(completions, state_by_id, group_members, barrier_waiting, time)
 
-                warp = warp_map[warp_id]
-                instr = warp.instructions[instr_id]
-
-                if instr.op.startswith("bar."):
-                    key = (warp.group_id, instr.id)
-
-                    if key not in barrier_waiting:
-                        barrier_waiting[key] = {}
-
-                    barrier_waiting[key][warp_id] = complete_time
-
-                    arrived = set(barrier_waiting[key].keys())
-                    required = group_members[warp.group_id]
-
-                    if arrived == required:
-                        release_time = max(barrier_waiting[key].values())
-
-                        for waiting_warp_id in required:
-                            waiting_warp = warp_map[waiting_warp_id]
-                            waiting_warp.completed[instr.id] = release_time
-
-                        del barrier_waiting[key]
-
-                else:
-                    warp.completed[instr_id] = complete_time
-
-            if all(warp.is_done() for warp in warps):
+            if all(state.is_done() for state in states):
                 break
 
-            candidates = self._collect_candidates(warps, time)
+            current_cycle = int(math.floor(time))
 
-            issued_count = 0
-            issued_any = False
+            if issue_cycle != current_cycle:
+                issue_cycle = current_cycle
+                issued_this_cycle = 0
 
-            for warp, instr in self.scheduler.order(candidates):
-                if issued_count >= self.hardware.issue_limit:
+            while issued_this_cycle < issue_limit:
+                candidates = self._collect_candidates(states, exe, subsystems, time)
+                ordered = self.scheduler.order(candidates)
+
+                if not ordered:
                     break
 
-                if instr.id in warp.issued:
-                    continue
+                state, instr = ordered[0]
+                timing = self.mapper(instr, self.hardware, exe)
+                subsystem = subsystems[timing.subsystem]
 
-                timing = self.mapper(instr)
-                subsystem = self.subsystems[timing.subsystem]
+                state.issued.add(instr.id)
 
-                if subsystem.next_issue_time > time:
-                    continue
-
-                warp.issued.add(instr.id)
-                subsystem.next_issue_time = time + timing.cpi
-
-                complete_time = time + timing.latency
-                self.trace.append(
-                    TraceEvent(
-                        group_id=warp.group_id,
-                        warp_id=warp.warp_id,
-                        instr_id=instr.id,
-                        op=instr.op,
-                        subsystem=timing.subsystem,
-                        issue_time=time,
-                        complete_time=complete_time,
-                        deps=instr.deps,
-                        raw=instr.raw,
-                    )
-                )
+                subsystem.next_issue_time = time + timing.lambda_cpi
+                complete_time = time + timing.completion_latency
 
                 heapq.heappush(
                     completions,
-                    (complete_time, next(event_counter), warp.warp_id, instr.id),
+                    (
+                        complete_time,
+                        next(event_counter),
+                        state.hardware_thread_id,
+                        instr.id,
+                    ),
                 )
+                
+                if tracing:
+                    trace.append(TraceEvent(state.group_id, state.hardware_thread_id, instr.id, instr.op, timing.subsystem, time, complete_time, instr.deps, instr.raw))
+                issued_this_cycle += 1
 
-                issued_count += 1
-                issued_any = True
+            next_time = self._next_event_time(time, completions, subsystems)
 
-            # if issued_any:
-            #     continue
-
-            next_time = self._next_event_time(time, completions)
+            if issued_this_cycle >= issue_limit:
+                next_cycle_time = current_cycle + 1
+                if next_cycle_time > time:
+                    next_time = next_cycle_time if next_time is None else min(next_time, next_cycle_time)
 
             if next_time is None:
-                self._dump_state(time, warps, completions)
-
-                print("Barrier waiting state:")
-                for key, waiting in barrier_waiting.items():
-                    print(f"  {key}: {waiting}")
-
-                raise RuntimeError(
-                    "Simulation deadlock: no ready instruction and no future event."
+                self._dump_deadlock(
+                    time,
+                    states,
+                    subsystems,
+                    completions,
+                    barrier_waiting,
+                    None,
                 )
+                break
 
             time = next_time
 
-        return max(
-            max(warp.completed.values(), default=0.0)
-            for warp in warps
-        )
+        cycles = max((max(s.completed.values(), default=0.0) for s in states), default=0.0)
+        if not tracing:
+            trace = None
+        return SimulationResult(kernel_name, exe, cycles, len(idg), trace)
 
-    def _collect_candidates(self, warps: List[WarpState], time: float) -> List[Tuple[WarpState, Instruction]]:
-        candidates = []
+    def _complete_ready(self, completions, state_by_id, group_members, barrier_waiting, time):
+        while completions and completions[0][0] <= time:
+            complete_time, _, hardware_thread_id, instr_id = heapq.heappop(completions)
+            state = state_by_id[hardware_thread_id]
+            instr = state.instructions[instr_id]
 
-        for warp in warps:
-            for instr in warp.ready_instructions(time):
-                timing = self.mapper(instr)
+            if instr.op != "barrier":
+                state.completed[instr_id] = complete_time
+                continue
 
-                if timing.subsystem not in self.subsystems:
-                    raise ValueError(f"Unknown subsystem: {timing.subsystem}")
+            key = (state.group_id, instr.id)
+            waiting = barrier_waiting.setdefault(key, {})
+            waiting[hardware_thread_id] = complete_time
 
-                subsystem = self.subsystems[timing.subsystem]
+            required = group_members[state.group_id]
+
+            if set(waiting) == required:
+                release_time = max(waiting.values())
+
+                for waiting_id in required:
+                    state_by_id[waiting_id].completed[instr.id] = release_time
+
+                del barrier_waiting[key]
+
+    def _collect_candidates(self, states, exe, subsystems, time):
+        out = []
+
+        for state in states:
+            for instr in state.ready_instructions(time):
+                timing = self.mapper(instr, self.hardware, exe)
+                subsystem = subsystems[timing.subsystem]
 
                 if subsystem.next_issue_time <= time:
-                    candidates.append((warp, instr))
+                    out.append((state, instr))
 
-        return candidates
+        return out
 
-    def _next_event_time(self, current_time: float, completions) -> Optional[float]:
+    def _next_event_time(self, time, completions, subsystems):
         times = []
 
-        if completions:
+        if completions and completions[0][0] > time:
             times.append(completions[0][0])
 
-        for subsystem in self.subsystems.values():
-            if subsystem.next_issue_time > current_time:
+        for subsystem in subsystems.values():
+            if subsystem.next_issue_time > time:
                 times.append(subsystem.next_issue_time)
 
-        return min(times) if times else None
+        if not times:
+            return None
 
-    def get_trace(self) -> List[TraceEvent]:
-        return list(self.trace)
+        return min(times)
 
-
-    def print_trace(self, limit: Optional[int] = None) -> None:
-        events = self.trace if limit is None else self.trace[:limit]
-
-        for event in events:
+    def _dump_deadlock(self, time, states, subsystems, completions, barrier_waiting, next_global_issue_time):
+        print("time", time)
+        print("next_global_issue_time", next_global_issue_time)
+        print("subsystems", subsystems)
+        print("completions", completions[:10])
+        print("barrier_waiting", barrier_waiting)
+        for state in states[:16]:
             print(
-                f"t={event.issue_time:8.2f} -> {event.complete_time:8.2f} | "
-                f"g={event.group_id} w={event.warp_id} | "
-                f"{event.instr_id:>5} {event.op:<20} | "
-                f"{event.subsystem:<10} | "
-                f"deps={event.deps}"
+                "thread",
+                state.hardware_thread_id,
+                "group",
+                state.group_id,
+                "issued",
+                sorted(state.issued),
+                "completed",
+                sorted(state.completed),
+                "ready",
+                [i.id for i in state.ready_instructions(time)],
             )
 
-    def write_trace_csv(self, path: str) -> None:
-        import csv
 
-        with open(path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
+class TraceEvent:
+    def __init__(self, group_id, hardware_thread_id, instr_id, op, subsystem, issue_time, complete_time, deps=(), raw=""):
+        self.group_id = group_id
+        self.hardware_thread_id = hardware_thread_id
+        self.instr_id = instr_id
+        self.op = op
+        self.subsystem = subsystem
+        self.issue_time = float(issue_time)
+        self.complete_time = float(complete_time)
+        self.deps = tuple(deps)
+        self.raw = raw
 
-            writer.writerow([
-                "group_id",
-                "warp_id",
-                "instr_id",
-                "op",
-                "subsystem",
-                "issue_time",
-                "complete_time",
-                "deps",
-                "raw",
-            ])
+    def __repr__(self):
+        return (
+            f"TraceEvent("
+            f"grp={self.group_id}, "
+            f"ht={self.hardware_thread_id}, "
+            f"instr='{self.instr_id}', "
+            f"op='{self.op}', "
+            f"subsys='{self.subsystem}', "
+            f"issue={self.issue_time:.2f}, "
+            f"done={self.complete_time:.2f}, "
+            f"deps={self.deps}"
+            f")"
+        )
 
-            for event in self.trace:
-                writer.writerow([
-                    event.group_id,
-                    event.warp_id,
-                    event.instr_id,
-                    event.op,
-                    event.subsystem,
-                    event.issue_time,
-                    event.complete_time,
-                    " ".join(event.deps),
-                    event.raw,
-                ])
 
-    def _dump_state(self, time, warps, completions):
-        print("\n=== DEADLOCK DEBUG DUMP ===")
-        print(f"Current time: {time}\n")
+class SimulationResult:
+    def __init__(self, kernel_name, execution_config, cycles, instruction_count_per_hardware_thread, trace=None):
+        self.kernel_name = kernel_name
+        self.execution_config = execution_config
+        self.cycles = float(cycles)
+        self.instruction_count_per_hardware_thread = int(instruction_count_per_hardware_thread)
+        self.trace = tuple(trace) if trace is not None else None
 
-        print("Subsystems:")
-        for name, sub in self.subsystems.items():
-            print(f"  {name}: next_issue_time={sub.next_issue_time}")
+    @property
+    def total_hardware_threads(self):
+        return self.execution_config.occupancy_hardware_threads
 
-        print("\nWarps:")
-        for warp in warps:
-            print(f"  Warp {warp.warp_id}:")
-            print(f"    issued: {sorted(warp.issued)}")
-            print(f"    completed: {warp.completed}")
+    @property
+    def total_instructions(self):
+        return self.total_hardware_threads * self.instruction_count_per_hardware_thread
 
-            ready = warp.ready_instructions(time)
-            print(f"    ready now: {[instr.id for instr in ready]}")
+    @property
+    def hardware_threads_per_cycle(self):
+        if self.cycles == 0:
+            return math.inf
+        return self.total_hardware_threads / self.cycles
 
-            not_issued = [
-                instr.id for instr in warp.instructions.values()
-                if instr.id not in warp.issued
-            ]
-            print(f"    not issued: {not_issued}")
-
-            blocked = []
-            for instr in warp.instructions.values():
-                if instr.id in warp.issued:
-                    continue
-
-                missing = [
-                    dep for dep in instr.deps
-                    if dep not in warp.completed
-                ]
-                if missing:
-                    blocked.append((instr.id, missing))
-
-            print(f"    blocked deps: {blocked}")
-            print()
-
-        print("Pending completions:")
-        for entry in completions:
-            print(f"  {entry}")
-
-        print("=== END DEBUG DUMP ===\n")
-
+    @property
+    def instructions_per_cycle(self):
+        if self.cycles == 0:
+            return math.inf
+        return self.total_instructions / self.cycles
 

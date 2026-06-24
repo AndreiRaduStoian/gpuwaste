@@ -4,7 +4,7 @@ import csv
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-ROOT = Path("/workspace/gpuwaste/results/thesis_final_runs")
+ROOT = Path("/home/andrei/final/gpuwaste/results/accelsim_results/")
 OUT = ROOT / "combined_figures"
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -39,6 +39,17 @@ PARAMS = [
 
 KERNELS = ["compute", "vectoradd", "shared"]
 
+LINESTYLES = {
+    "compute": "-",
+    "vectoradd": "--",
+    "shared": ":",
+}
+
+MARKERS = {
+    "compute": "o",
+    "vectoradd": "s",
+    "shared": "^",
+}
 
 def read_rows(path: Path) -> list[dict]:
     if not path.exists():
@@ -92,7 +103,10 @@ def main() -> None:
                 ax.plot(
                     [r["scale"] for r in kr],
                     [r["time_slowdown"] for r in kr],
-                    marker="o",
+                    marker=MARKERS[kernel],
+                    linestyle=LINESTYLES[kernel],
+                    linewidth=2.0,
+                    markersize=5,
                     label=kernel,
                 )
 

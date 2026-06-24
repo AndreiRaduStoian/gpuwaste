@@ -1,0 +1,18 @@
+==PROF== Connected to process 21561 (/home/andrei/final/gpuwaste/benchmarks/cu/synthetic_kernels_nwu)
+==PROF== Profiling "pointer_chase_kernel" - 0: 0%....50%....100% - 1 pass
+==PROF== Disconnected from process 21561
+Kernel:      pointer
+N:           524288
+Iterations:  20
+Block size:  256
+[21561] synthetic_kernels_nwu@127.0.0.1
+  pointer_chase_kernel(const int *, int *, int, int) (2048, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: Command line profiler metrics
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    gpu__cycles_elapsed.avg       cycle       21,298
+    gpu__time_duration.sum      usecond        16.96
+    sm__cycles_elapsed.avg        cycle    25,329.09
+    ----------------------- ----------- ------------
+

@@ -1,93 +1,108 @@
-from __future__ import annotations
+# Defines hardware config and includes all configs used in thesis.
 
-from dataclasses import dataclass
-from typing import Dict, Tuple
-
-
-@dataclass(frozen=True)
 class InstructionTiming:
-    """
-    subsystem: abstract pipeline name
-    cpi: λ, / inverse throughput
-    latency: completion latency
-    """
-    subsystem: str
-    cpi: float
-    latency: float
+    def __init__(self, subsystem, lambda_cpi, completion_latency):
+        self.subsystem = subsystem
+        self.lambda_cpi = float(lambda_cpi)
+        self.completion_latency = float(completion_latency)
 
 
-@dataclass(frozen=True)
-class HardwareConfig:
-    """
-    Hardware configuration for one simulated GPU core.
-    """
-    subsystems: Tuple[str, ...]
-    issue_limit: int
-    timings: Dict[str, InstructionTiming]
+class SubsystemState:
+    def __init__(self, name):
+        self.name = name
+        self.next_issue_time = 0.0
 
-    def timing_for_class(self, instr_class: str) -> InstructionTiming:
-        if instr_class not in self.timings:
-            raise ValueError(f"No timing configured for instruction class: {instr_class}")
-
-        timing = self.timings[instr_class]
-
-        if timing.subsystem not in self.subsystems:
-            raise ValueError(
-                f"Timing for class {instr_class} maps to unknown subsystem {timing.subsystem}"
-            )
-
-        return timing
+    def __repr__(self):
+        return f"SubsystemState(name={self.name!r}, next_issue_time={self.next_issue_time})"
 
 
-def classify_ptx_op(op: str) -> str:
-    if op.startswith("ld.") or op.startswith("st."):
-        return "mem"
+class CoreHardwareConfig:
+    def __init__(self, subsystems, issue_limit_ipc, timings):
+        self.subsystems = tuple(subsystems)
+        self.issue_limit_ipc = float(issue_limit_ipc)
+        self.timings = dict(timings)
 
-    if op.startswith("bar."):
-        return "barrier"
+    @property
+    def issue_lambda_cpi(self):
+        return 1.0 / self.issue_limit_ipc
 
-    if op == "bra" or op == "ret":
-        return "control"
-
-    if op.startswith(("sin.", "cos.", "ex2.", "lg2.", "sqrt.", "rsqrt.", "rcp.")):
-        return "sfu"
-
-    return "alu"
+    def timing_for_op(self, op):
+        return self.timings[op]
 
 
-def make_static_mapper(hardware: HardwareConfig):
-    def mapper(instr):
-        return hardware.timing_for_class(instr.op)
+class ExecutionConfig:
+    def __init__(self, hardware_threads_per_group, concurrent_groups_per_core):
+        self.hardware_threads_per_group = int(hardware_threads_per_group)
+        self.concurrent_groups_per_core = int(concurrent_groups_per_core)
 
-    return mapper
+    @property
+    def occupancy_hardware_threads(self):
+        return self.hardware_threads_per_group * self.concurrent_groups_per_core
+
+    @property
+    def occupancy_warps(self):
+        return self.occupancy_hardware_threads
 
 
-def make_ptx_static_mapper(hardware: HardwareConfig):
-    def mapper(instr):
-        instr_class = classify_ptx_op(instr.op)
-        return hardware.timing_for_class(instr_class)
-
-    return mapper
-
-
-TOY_HARDWARE = HardwareConfig(
-    subsystems=("alu", "mem"),
-    issue_limit=1,
+# For unit tests
+PAPER_TOY_HARDWARE = CoreHardwareConfig(
+    subsystems=("compute", "memory"),
+    issue_limit_ipc=4.0,
     timings={
-        "alu": InstructionTiming(subsystem="alu", cpi=1.0, latency=4.0),
-        "mem": InstructionTiming(subsystem="mem", cpi=2.0, latency=6.0),
+        "compute": InstructionTiming("compute", 1.0, 4.0),
+        "memory": InstructionTiming("memory", 2.0, 6.0),
+    },
+)
+
+BARRIER_SMOKE_HARDWARE = CoreHardwareConfig(
+    subsystems=("compute", "barrier"),
+    issue_limit_ipc=4.0,
+    timings={
+        "compute": InstructionTiming("compute", 1.0, 4.0),
+        "barrier": InstructionTiming("barrier", 1.0, 1.0),
     },
 )
 
 
-TOY_PTX_HARDWARE = HardwareConfig(
-    subsystems=("alu", "mem", "barrier", "control", "sfu"),
-    issue_limit=1,
+# For the plot like fig16, we chose mul.s32 as the compute op for these two.
+FERMI_BARRIER_HARDWARE = CoreHardwareConfig(
+    subsystems=("compute", "barrier"),
+    issue_limit_ipc=1.0,
     timings={
-        "alu": InstructionTiming(subsystem="alu", cpi=1.0, latency=4.0),
-        "mem": InstructionTiming(subsystem="mem", cpi=2.0, latency=20.0),
-        "barrier": InstructionTiming(subsystem="barrier", cpi=1.0, latency=1.0),
-        "control": InstructionTiming(subsystem="control", cpi=1.0, latency=1.0),
-        "sfu": InstructionTiming(subsystem="sfu", cpi=4.0, latency=16.0),
+        "compute": InstructionTiming("compute", 1.0, 18.0),
+        "barrier": InstructionTiming("barrier", 2.0, 40.0),
+    },
+)
+PASCAL_BARRIER_HARDWARE = CoreHardwareConfig(
+    subsystems=("compute", "barrier"),
+    issue_limit_ipc=4.0,
+    timings={
+        "compute": InstructionTiming("compute", 0.25, 6.0),
+        "barrier": InstructionTiming("barrier", 2.25, 70.0),
+    },
+)
+
+
+# For comparison and scaling
+RTX_3070_CALIBRATION_HARDWARE = CoreHardwareConfig(
+    # ampere GA104 has four warp schedulers per SM.
+    issue_limit_ipc = 4.0,
+    subsystems=("alu", "int_alu", "global_mem", "local_mem", "barrier", "sfu"),
+    # rounded to 1/IL as per paper.
+    timings={
+        "fma_f32": InstructionTiming("alu", 0.25, 1.00),         # MADD/1
+        "add_f32": InstructionTiming("alu", 0.50, 1.75),         # SP/1
+        "int_alu": InstructionTiming("int_alu", 0.25, 1.00),     # IMADD/1
+        "sfu":     InstructionTiming("sfu", 4.00, 6.50),         # SF/1
+
+        # issue interval from RTX 3070 Global/Float/MainMemory.
+        # completion latency from Global/Float/CacheLevel2
+        "global_mem": InstructionTiming("global_mem", 14.50, 231.00),
+
+        # barrier(sync) not measured by microbench.
+        # no results for local mem in microbench. (except a single completion latency measurement of 27c roughly in line with the rest in Jan Lemeire paper)
+        # following are from turing 
+        "local_mem": InstructionTiming("local_mem", 2.00, 32.00),
+        "barrier": InstructionTiming("barrier", 1.50, 17.00),
     },
 )
